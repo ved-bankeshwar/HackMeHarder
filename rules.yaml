@@ -1,0 +1,61 @@
+secret_rules:
+  - id: generic-password
+    description: Hardcoded password found
+    severity: High
+  # Note: A single quote (') inside a single-quoted string is escaped by doubling it ('').
+    regex: '(?i)[''"]?(password|passwd|pwd)[''"]?\s*[:=]\s*[''"](.{4,})[''"]'
+
+  - id: generic-api-key
+    description: Generic API key found
+    severity: High
+    regex: '(?i)[''"]?(api_key|apikey|api-key|access_key|access-key|secret_key|secret-key)[''"]?\s*[:=]\s*[''"]([a-zA-Z0-9_.-]{16,})[''"]'
+
+  - id: generic-token
+    description: Generic token found
+    severity: High
+    regex: '(?i)[''"]?(token|auth_token|access_token|secret_token)[''"]?\s*[:=]\s*[''"]([a-zA-Z0-9_.-]{16,})[''"]'
+
+  - id: aws-access-key-id
+    description: AWS Access Key ID found
+    severity: Critical
+    regex: '(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'
+
+  - id: aws-secret-access-key
+    description: AWS Secret Access Key found
+    severity: Critical
+    regex: '(?i)aws(.{0,20})?[''"][0-9a-zA-Z\/+]{40}[''"]'
+
+  - id: google-api-key
+    description: Google Cloud API key found
+    severity: Critical
+    regex: 'AIza[0-9A-Za-z\\-_]{35}'
+
+  - id: ssh-private-key
+    description: SSH private key found
+    severity: Critical
+    regex: '-----BEGIN (RSA|DSA|EC|OPENSSH) PRIVATE KEY-----'
+
+  - id: db-connection-string
+    description: Database connection string with credentials found
+    severity: Critical
+    regex: '[a-zA-Z]+:\/\/[^:]+:[^@]+@[^:]+:[0-9]+\/[a-zA-Z0-9_]+'
+
+  - id: github-token
+    description: GitHub token found
+    severity: Critical
+    regex: 'ghp_[0-9a-zA-Z]{36}'
+
+  - id: stripe-api-key
+    description: Stripe API key found
+    severity: Critical
+    regex: '(sk|pk)_(test|live)_[0-9a-zA-Z]{24}'
+
+weak_crypto_rules:
+    - id: "weak-hash-md5"
+      pattern: "hashlib.md5"
+      description: "MD5 is a broken hashing algorithm."
+      severity: "High"
+    - id: "weak-hash-sha1"
+      pattern: "hashlib.sha1"
+      description: "SHA1 is a weak hashing algorithm."
+      severity: "Medium"
