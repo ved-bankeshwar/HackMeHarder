@@ -63,7 +63,7 @@ secret_rules:
   - id: jwt-token
     description: "JSON Web Token (JWT) found"
     severity: "High"
-    regex: "ey[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}"
+    regex: '[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}'
 
   - id: azure-sas-token
     description: "Azure Shared Access Signature (SAS) token found"

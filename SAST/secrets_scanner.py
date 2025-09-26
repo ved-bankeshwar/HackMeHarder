@@ -89,3 +89,4 @@ def scan_file_for_secrets(filepath,rules):
         print(f"Error scanning file {filepath}: {e}")
 
     return findings
+
