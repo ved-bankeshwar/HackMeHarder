@@ -1,6 +1,11 @@
+import os
+import sys
+
 import argparse
 from urllib.parse import urlparse
 from typing import List, Dict, Any, Tuple, Callable
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, project_root)
 
 # --- Import the actual modules from your project structure ---
 # Member 1's Crawler
