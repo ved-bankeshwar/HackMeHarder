@@ -1,0 +1,272 @@
+secret_rules:
+  - id: generic-password
+    description: Hardcoded password found
+    severity: High
+  # Note: A single quote (') inside a single-quoted string is escaped by doubling it ('').
+    regex: '(?i)[''"]?(password|passwd|pwd)[''"]?\s*[:=]\s*[''"](.{4,})[''"]'
+
+  - id: generic-api-key
+    description: Generic API key found
+    severity: High
+    regex: '(?i)[''"]?(api_key|apikey|api-key|access_key|access-key|secret_key|secret-key)[''"]?\s*[:=]\s*[''"]([a-zA-Z0-9_.-]{16,})[''"]'
+
+  - id: generic-token
+    description: Generic token found
+    severity: High
+    regex: '(?i)[''"]?(token|auth_token|access_token|secret_token)[''"]?\s*[:=]\s*[''"]([a-zA-Z0-9_.-]{16,})[''"]'
+
+  - id: aws-access-key-id
+    description: AWS Access Key ID found
+    severity: Critical
+    regex: '(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'
+
+  - id: aws-secret-access-key
+    description: AWS Secret Access Key found
+    severity: Critical
+    regex: '(?i)aws(.{0,20})?[''"][0-9a-zA-Z\/+]{40}[''"]'
+
+  - id: google-api-key
+    description: Google Cloud API key found
+    severity: Critical
+    regex: 'AIza[0-9A-Za-z\\-_]{35}'
+
+  - id: ssh-private-key
+    description: SSH private key found
+    severity: Critical
+    regex: '-----BEGIN (RSA|DSA|EC|OPENSSH) PRIVATE KEY-----'
+
+  - id: db-connection-string
+    description: Database connection string with credentials found
+    severity: Critical
+    regex: '[a-zA-Z]+:\/\/[^:]+:[^@]+@[^:]+:[0-9]+\/[a-zA-Z0-9_]+'
+
+  - id: github-token
+    description: GitHub token found
+    severity: Critical
+    regex: 'ghp_[0-9a-zA-Z]{36}'
+
+  - id: stripe-api-key
+    description: Stripe API key found
+    severity: Critical
+    regex: '(sk|pk)_(test|live)_[0-9a-zA-Z]{24}'
+
+  - id: slack-token
+    description: "Slack token found"
+    severity: "Critical"
+    regex: "(xox[p|b|o|a]-[0-9]{12}-[0-9]{12}-[0-9]{12}-[a-z0-9]{32})"
+
+  - id: azure-storage-key
+    description: "Azure Storage Account key found"
+    severity: "Critical"
+    regex: "AccountKey=[a-zA-Z0-9+/=]{88}"
+  
+  - id: jwt-token
+    description: "JSON Web Token (JWT) found"
+    severity: "High"
+    regex: "ey[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}"
+
+  - id: azure-sas-token
+    description: "Azure Shared Access Signature (SAS) token found"
+    severity: "Critical"
+    regex: 'sig=[a-zA-Z0-9%]{40,}'
+  
+  - id: gcp-service-account
+    description: "GCP Service Account JSON key file detected"
+    severity: "Critical"
+    regex: '"type": "service_account"'
+    
+  - id: aws-session-token
+    description: "AWS Session Token found"
+    severity: "Critical"
+    regex: '(?i)aws(.{0,20})?["''`][A-Z0-9\/+]{100,}["''`]'
+    
+  - id: jwt-secret-key
+    description: "Hardcoded JWT secret key found"
+    severity: "Critical"
+    regex: '(?i)["''`](jwt_secret|jwt-secret|jwt_key|jwt-key)["''`]\s*[:=]\s*["''`].+["''`]'
+
+weak_crypto_rules:
+    - id: "weak-hash-md5"
+      pattern: "hashlib.md5"
+      description: "MD5 is a broken hashing algorithm."
+      severity: "High"
+    - id: "weak-hash-sha1"
+      pattern: "hashlib.sha1"
+      description: "SHA1 is a weak hashing algorithm."
+      severity: "Medium"
+    - id: "weak-cipher-des"
+      pattern: "Crypto.Cipher.DES.new"
+      description: "DES is an insecure and outdated encryption algorithm."
+      severity: "High"
+    - id: "weak-cipher-rc4"
+      pattern: "Crypto.Cipher.ARC4.new"
+      description: "RC4 is a weak stream cipher with several known vulnerabilities."
+      severity: "High"
+    - id: "weak-cipher-tripledes"
+      pattern: "Crypto.Cipher.DES3.new"
+      description: "Triple DES (DES3) is slow and vulnerable to certain attacks."
+      severity: "Medium"
+
+
+insecure_parsing_rules:
+  - id: "xxe-element-tree"
+    pattern: "xml.etree.ElementTree.parse"
+    match_type: "startswith" 
+    description: "The default ElementTree parser is not secure against XXE. Use a defended parser like defusedxml."
+    severity: "High"
+  - id: "xxe-lxml"
+    pattern: "lxml.etree.parse"
+    match_type: "startswith" 
+    description: "By default, lxml.etree.parse is not secure against XXE. Ensure the parser is configured to resolve_entities=False."
+    severity: "High"
+  - id: "xxe-etree-generic"
+    pattern: '^xml\.etree\..*\.(parse|fromstring)$' 
+    match_type: "regex" # 
+    description: "Use of a standard xml.etree parser may be unsafe against XXE."
+    severity: "High"
+
+  - id: "xxe-lxml-startswith"
+    pattern: "lxml.etree"
+    match_type: "startswith"
+    description: "lxml.etree is not secure by default."
+    severity: "High"
+
+safe_xml_modules:
+  - "defusedxml"
+  - "xml.sax.handler"
+
+taint_analysis_rules:
+  path_traversal:
+    id: "path-traversal"
+    description: "Potential Path Traversal: User-controlled input is used in a file path."
+    severity: "High"
+    sources:
+      # Patterns for where user input comes from in Flask
+      - "request.args.get"
+      - "request.form.get"
+    sinks:
+      # Dangerous functions for file access
+      - "open"
+      - "os.path.join"
+      - "pathlib.Path"
+      - "io.open"
+
+  sql_injection:
+    id: "sql-injection"
+    description: "Potential SQL Injection: User-controlled input flows into a database query execution."
+    severity: "Critical"
+    sources:
+      - "request.args.get"
+      - "request.form.get"
+    sinks:
+      - "cursor.execute"
+      - "cursor.executemany"
+      - "cursor.raw_execute"
+      - "pandas.read_sql_query"
+      - "sqlalchemy.text"
+      # Note: This is a simplified check. A more advanced scanner
+      # would also check for insecure string formatting.
+  
+  command_injection:
+    id: "command-injection"
+    description: "Potential Command Injection: User-controlled input flows into a system command."
+    severity: "Critical"
+    sources:
+      - "request.args.get"
+      - "request.form.get"
+    sinks:
+      - "os.system"
+      - "os.popen"  
+      - "subprocess.run"
+      - "subprocess.call"
+      - "subprocess.Popen"
+      - "shlex.split"
+
+  unvalidated_redirect:
+    id: "unvalidated-redirect"
+    description: "Potential Unvalidated Redirect: User-controlled input is used in a redirect function."
+    severity: "Medium"
+    sources:
+      # Sources of user input for Flask
+      - "request.args.get"
+      - "request.form.get"
+    sinks:
+      # Redirect functions for Flask and Django
+      - "flask.redirect"
+      - "django.shortcuts.redirect"
+      - "django.http.HttpResponseRedirect"
+
+insecure_deserialization_rules:
+  - id: "insecure-pickle-load"
+    pattern: "pickle.load"
+    description: "Deserializing data with pickle.load is insecure. Unpickling data from an untrusted source can execute arbitrary code."
+    severity: "Critical"
+    remediation: "Avoid using pickle with untrusted data. Use a safer serialization format like JSON if possible."
+
+  - id: "insecure-pickle-loads"
+    pattern: "pickle.loads"
+    description: "Deserializing data with pickle.loads is insecure. Unpickling data from an untrusted source can execute arbitrary code."
+    severity: "Critical"
+    remediation: "Avoid using pickle with untrusted data. Use a safer serialization format like JSON if possible."
+
+  - id: "insecure-shelve"
+    pattern: "shelve.open"
+    description: "The shelve module uses pickle internally, making it unsafe to use with untrusted file sources."
+    severity: "High"
+    remediation: "Do not use shelve with data from untrusted sources. Consider using a database or a safer file format."
+
+  - id: "insecure-yaml-load"
+    pattern: "yaml.load"
+    description: "The default yaml.load() can execute arbitrary Python code. It is unsafe to use with any untrusted data."
+    severity: "High"
+    remediation: "Always use yaml.safe_load() to parse YAML data from untrusted sources. It can only parse a subset of the YAML language."
+  
+  - id: PY-CMD-INJ-001
+    name: "Command Injection: Subprocess with shell=True"
+    type: "Command Injection"
+    detection:
+    node_type: "Call"
+    function_is_attribute: True
+    function_call_properties:
+      object_name: "subprocess"
+
+      keyword_argument:
+        name: "shell"
+        value: True
+
+  - id: PY-CMD-INJ-002
+    name: "Command Injection: os.system call"
+    type: "Command Injection"
+    detection:
+      node_type: "Call"
+      function_is_attribute: True
+      function_call_properties:
+        object_name: "os"
+        function_name: "system"
+
+  - id: PY-SQLI-001
+    name: "SQL Injection: Unsafe string in execute"
+    type: "SQL Injection"
+    detection:
+        node_type: "Call"
+        function_is_attribute: True
+        function_call_properties:
+          function_name: "execute"
+        argument_properties:
+          - position: 0
+            is_formatted_string: True
+
+xss_rules:
+  # 'Sources' are functions/objects that provide user-controllable input.
+  sources:
+    - "request.args"
+    - "request.form"
+    - "request.values"
+    - "request.data"
+    - "request.json"
+
+  # 'Sinks' are dangerous functions where tainted data should not go.
+  # For Flask, this includes functions that render raw HTML.
+  sinks:
+    - "render_template_string"
+    - "Markup"
