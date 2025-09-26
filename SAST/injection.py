@@ -29,7 +29,7 @@ class ASTAnalyzer(ast.NodeVisitor):
         self.generic_visit(node)
 
     def node_matches_rule(self, node, detection_logic):
-
+        
         if detection_logic.get('function_is_attribute'):
             if not isinstance(node.func, ast.Attribute):
                 return False
@@ -75,7 +75,7 @@ class ASTAnalyzer(ast.NodeVisitor):
         return True
 
 
-def load_rules(filepath='rules_injection.yaml'):
+def load_rules(filepath='../rules.yaml'):
 
     if not os.path.exists(filepath):
         print(f"[!] Error: Rule file '{filepath}' not found. Aborting.")
@@ -127,7 +127,7 @@ def print_report(vulnerabilities):
 
 def main():
 
-    rules = load_rules('rules_injection.yaml')
+    rules = load_rules('../rules.yaml')
     print(f"[*] Successfully loaded {len(rules)} rules.")
 
     if len(sys.argv) < 2:

@@ -1,61 +1,76 @@
-secret_rules:
-  - id: generic-password
-    description: Hardcoded password found
-    severity: High
-  # Note: A single quote (') inside a single-quoted string is escaped by doubling it ('').
-    regex: '(?i)[''"]?(password|passwd|pwd)[''"]?\s*[:=]\s*[''"](.{4,})[''"]'
 
-  - id: generic-api-key
-    description: Generic API key found
-    severity: High
-    regex: '(?i)[''"]?(api_key|apikey|api-key|access_key|access-key|secret_key|secret-key)[''"]?\s*[:=]\s*[''"]([a-zA-Z0-9_.-]{16,})[''"]'
 
-  - id: generic-token
-    description: Generic token found
-    severity: High
-    regex: '(?i)[''"]?(token|auth_token|access_token|secret_token)[''"]?\s*[:=]\s*[''"]([a-zA-Z0-9_.-]{16,})[''"]'
+insecure_deserialization_rules:
+  - id: "insecure-pickle-load"
+    pattern: "pickle.load"
+    description: "Deserializing data with pickle.load is insecure. Unpickling data from an untrusted source can execute arbitrary code."
+    severity: "Critical"
+    remediation: "Avoid using pickle with untrusted data. Use a safer serialization format like JSON if possible."
 
-  - id: aws-access-key-id
-    description: AWS Access Key ID found
-    severity: Critical
-    regex: '(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'
+  - id: "insecure-pickle-loads"
+    pattern: "pickle.loads"
+    description: "Deserializing data with pickle.loads is insecure. Unpickling data from an untrusted source can execute arbitrary code."
+    severity: "Critical"
+    remediation: "Avoid using pickle with untrusted data. Use a safer serialization format like JSON if possible."
 
-  - id: aws-secret-access-key
-    description: AWS Secret Access Key found
-    severity: Critical
-    regex: '(?i)aws(.{0,20})?[''"][0-9a-zA-Z\/+]{40}[''"]'
+  - id: "insecure-shelve"
+    pattern: "shelve.open"
+    description: "The shelve module uses pickle internally, making it unsafe to use with untrusted file sources."
+    severity: "High"
+    remediation: "Do not use shelve with data from untrusted sources. Consider using a database or a safer file format."
 
-  - id: google-api-key
-    description: Google Cloud API key found
-    severity: Critical
-    regex: 'AIza[0-9A-Za-z\\-_]{35}'
+  - id: "insecure-yaml-load"
+    pattern: "yaml.load"
+    description: "The default yaml.load() can execute arbitrary Python code. It is unsafe to use with any untrusted data."
+    severity: "High"
+    remediation: "Always use yaml.safe_load() to parse YAML data from untrusted sources. It can only parse a subset of the YAML language."
+  
+  - id: PY-CMD-INJ-001
+    name: "Command Injection: Subprocess with shell=True"
+    type: "Command Injection"
+    detection:
+    node_type: "Call"
+    function_is_attribute: True
+    function_call_properties:
+      object_name: "subprocess"
 
-  - id: ssh-private-key
-    description: SSH private key found
-    severity: Critical
-    regex: '-----BEGIN (RSA|DSA|EC|OPENSSH) PRIVATE KEY-----'
+      keyword_argument:
+        name: "shell"
+        value: True
 
-  - id: db-connection-string
-    description: Database connection string with credentials found
-    severity: Critical
-    regex: '[a-zA-Z]+:\/\/[^:]+:[^@]+@[^:]+:[0-9]+\/[a-zA-Z0-9_]+'
+  - id: PY-CMD-INJ-002
+    name: "Command Injection: os.system call"
+    type: "Command Injection"
+    detection:
+      node_type: "Call"
+      function_is_attribute: True
+      function_call_properties:
+        object_name: "os"
+        function_name: "system"
 
-  - id: github-token
-    description: GitHub token found
-    severity: Critical
-    regex: 'ghp_[0-9a-zA-Z]{36}'
+  - id: PY-SQLI-001
+    name: "SQL Injection: Unsafe string in execute"
+    type: "SQL Injection"
+    detection:
+        node_type: "Call"
+        function_is_attribute: True
+        function_call_properties:
+          function_name: "execute"
+        argument_properties:
+          - position: 0
+            is_formatted_string: True
 
-  - id: stripe-api-key
-    description: Stripe API key found
-    severity: Critical
-    regex: '(sk|pk)_(test|live)_[0-9a-zA-Z]{24}'
+xss_rules:
+  # 'Sources' are functions/objects that provide user-controllable input.
+  sources:
+    - "request.args"
+    - "request.form"
+    - "request.values"
+    - "request.data"
+    - "request.json"
 
-weak_crypto_rules:
-    - id: "weak-hash-md5"
-      pattern: "hashlib.md5"
-      description: "MD5 is a broken hashing algorithm."
-      severity: "High"
-    - id: "weak-hash-sha1"
-      pattern: "hashlib.sha1"
-      description: "SHA1 is a weak hashing algorithm."
-      severity: "Medium"
+  # 'Sinks' are dangerous functions where tainted data should not go.
+  # For Flask, this includes functions that render raw HTML.
+  sinks:
+    - "render_template_string"
+    - "Markup"
