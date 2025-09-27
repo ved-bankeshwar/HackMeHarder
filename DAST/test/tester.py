@@ -1,11 +1,10 @@
-# vulnerable_app.py
+
 from flask import Flask, request, render_template_string, redirect, Response
 import sqlite3
-import os
 
 app = Flask(__name__)
 
-# --- Database Setup for SQLi ---
+
 def init_db():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -48,21 +47,21 @@ def index():
     </form>
     """
 
-# --- Vulnerability 1: Reflected XSS ---
+
 @app.route('/search')
 def search():
     query = request.args.get('q', '')
-    # VULNERABLE: Directly rendering user input
+    
     return render_template_string(f"<h2>Search results for: {query}</h2>")
 
-# --- Vulnerability 2: SQL Injection ---
+
 @app.route('/user')
 def get_user():
     user_id = request.args.get('id', '')
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     try:
-        # VULNERABLE: Unsafe f-string query
+        
         query = f"SELECT name FROM users WHERE id = '{user_id}'"
         cursor.execute(query)
         result = cursor.fetchone()
@@ -73,23 +72,21 @@ def get_user():
         conn.close()
 
 
-# --- Vulnerability 3: Path Traversal ---
+
 @app.route('/download')
 def download_file():
     filename = request.args.get('filename', '')
-    # VULNERABLE: Directly using user-provided path
     try:
-        # This is extremely insecure. Never do this in production.
         with open(filename, 'r') as f:
             return Response(f.read(), mimetype='text/plain')
     except Exception as e:
         return f"Error reading file: {e}", 404
 
-# --- Vulnerability 4: Unvalidated Redirect ---
+
 @app.route('/redirect')
 def redirect_to_url():
     next_url = request.args.get('next_url', '/')
-    # VULNERABLE: Redirecting to a user-controlled URL
+
     return redirect(next_url, code=302)
 
 if __name__ == '__main__':

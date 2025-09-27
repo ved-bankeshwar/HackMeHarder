@@ -4,10 +4,9 @@ import sys
 import ast
 import yaml
 import json  
-import re
 from SAST.vulnerability_scanner import CodeVulnerabilityVisitor, DeserializationAnalyzer
-from SAST.vulnerability_scanner import PathTraversalVisitor, scan_path_traversal_file as path_traversal_scan
-from SAST.vulnerability_scanner import UnvalidatedRedirectVisitor, scan_unvalidated_redirect_file as unvalidated_redirect_scan
+from SAST.vulnerability_scanner import scan_path_traversal_file as path_traversal_scan
+from SAST.vulnerability_scanner import scan_unvalidated_redirect_file as unvalidated_redirect_scan
 from SAST.vulnerability_scanner import scan_xxe_file
 
 

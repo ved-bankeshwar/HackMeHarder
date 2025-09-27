@@ -1,15 +1,3 @@
-import os
-import sys
-import json
-import argparse
-from urllib.parse import urlparse
-from typing import List, Dict, Any, Tuple, Callable
-
-# Add the project root to the Python path to allow for absolute imports
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-sys.path.insert(0, project_root)
-
-# --- Import the actual modules from your project structure ---
 from DAST.crawlers.index import crawl
 from DAST.attack_payload.attack_engine import send_malicious_requests
 from DAST.attack_payload.payloads import PAYLOADS
@@ -18,22 +6,29 @@ from DAST.analysis_engine.index import (
     is_vulnerable_to_xss,
     is_vulnerable_to_path_traversal,
     is_vulnerable_to_redirect,
-    is_vulnerable_to_cmd_injection  # Added support for Command Injection
+    is_vulnerable_to_cmd_injection 
 )
+import os
+import sys
+import json
+import argparse
+from urllib.parse import urlparse
+from typing import List, Dict, Any, Tuple, Callable
 
-# --- SAST Integration ---
-# This assumes your SAST tool's entry point is a function in SAST/SAST_check.py
-# The function should accept a source code path and return a list of vulnerability dictionaries.
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, project_root)
+
+
 try:
-    # Correctly importing the 'sast_check' function and aliasing it.
+ 
     from SAST_check import sast_check as run_sast_scan
 except ImportError:
     print("[!] Warning: SAST module could not be imported. The --hybrid-scan feature will not work.")
     print("    Please ensure your SAST tool has a callable 'sast_check' function in SAST/SAST_check.py.")
     run_sast_scan = None
 
-# --- Vulnerability Type Mapping ---
-# Maps verbose SAST types to the internal DAST types.
+
 SAST_TO_DAST_TYPE_MAPPING = {
     "SQL Injection": "SQLi",
     "Cross-Site Scripting": "XSS",
@@ -43,14 +38,12 @@ SAST_TO_DAST_TYPE_MAPPING = {
 }
 
 def normalize_sast_finding_type(sast_type: str) -> str:
-    """Normalizes the vulnerability type from SAST output to a DAST-compatible type."""
+    
     return SAST_TO_DAST_TYPE_MAPPING.get(sast_type, sast_type)
 
 
 def analyze_vulnerability(result: Dict[str, Any]) -> Tuple[bool, str]:
-    """
-    Dynamically selects the correct analysis function based on the vulnerability type.
-    """
+   
     vul_type = result['vul_type']
     response = result['response']
     payload = result['payload']
@@ -67,7 +60,7 @@ def analyze_vulnerability(result: Dict[str, Any]) -> Tuple[bool, str]:
     if not analyzer:
         return False, "No analysis function defined for this vulnerability type."
 
-    # Call analyzer based on its required arguments
+    
     if vul_type in ["XSS", "UnvalidatedRedirect"]:
         return analyzer(response, payload)
     else:
@@ -122,7 +115,6 @@ def run_sast_confirmation_scan(sast_findings: List[Dict[str, Any]], base_domain:
 
     for finding in sast_findings:
         sast_vul_type = finding.get("type")
-        # Normalize the type to match DAST's internal naming
         vul_type = normalize_sast_finding_type(sast_vul_type)
         
         target_url = finding.get("url")
@@ -145,7 +137,7 @@ def run_sast_confirmation_scan(sast_findings: List[Dict[str, Any]], base_domain:
             if is_vuln:
                 print(f"  [+] CONFIRMED: {sast_vul_type} vulnerability at {result['target_url']}")
                 confirmed_vulnerabilities.append({
-                    'type': sast_vul_type,  # Report with the original SAST name
+                    'type': sast_vul_type,  
                     'url': result['target_url'],
                     'param': result['target_param'],
                     'payload': result['payload'],
@@ -182,7 +174,7 @@ def print_report(vulnerabilities: List[Dict[str, Any]], is_confirmation: bool = 
     print(f"\n--- {scan_type} Scan Complete ---")
     if vulnerabilities:
         title = "CONFIRMED VULNERABILITIES" if is_confirmation else "VULNERABILITIES FOUND"
-        print(f"🎉 {title} ({len(vulnerabilities)}) 🎉")
+        print(f" {title} ({len(vulnerabilities)}) ")
         for vul in vulnerabilities:
             print("---------------------------------")
             print(f"Vulnerability: {vul['type']}")
@@ -196,7 +188,7 @@ def print_report(vulnerabilities: List[Dict[str, Any]], is_confirmation: bool = 
         print("---------------------------------")
     else:
         message = "No SAST findings could be confirmed." if is_confirmation else "No vulnerabilities detected."
-        print(f"✅ {message}")
+        print(f"Success:  {message}")
 
 
 def main():
@@ -214,7 +206,7 @@ def main():
     args = parser.parse_args()
     target_url = args.url
 
-    # --- Start Scan ---
+
     if args.full_scan:
         run_full_scan(target_url)
     elif args.sast_confirm:

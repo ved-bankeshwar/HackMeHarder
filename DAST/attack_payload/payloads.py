@@ -1,9 +1,9 @@
 
 PAYLOADS = {
     "SQLi": [
-        "' OR 1=1 --",              # Authentication Bypass (Tautology)
-        "'",                        # Simple Single Quote (Error Trigger)
-        "\" OR 1=1 --"              # Double Quote (Alternate Tautology)
+        "' OR 1=1 --",              
+        "'",                        
+        "\" OR 1=1 --"             
     ],
     "XSS": [
         "<script>alert('XSS-DAST')</script>",

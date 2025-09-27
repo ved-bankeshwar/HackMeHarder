@@ -1,4 +1,4 @@
-# /correlation_engine.py
+
 from SAST_check import sast_scan_directory
 from DAST.attack_payload.attack_engine import send_malicious_requests
 from DAST.main_controller.dast_cli import analyze_vulnerability
@@ -8,7 +8,7 @@ import json
 import logging
 from urllib.parse import urlparse
 
-# --- Set up structured logging ---
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] - %(message)s',
@@ -16,14 +16,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- Add project root to sys.path to allow imports ---
+
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 
 
-# Maps the verbose SAST type from rules.yaml to the short DAST type used in PAYLOADS
+
 SAST_TO_DAST_TYPE_MAPPING = {
     "SQL Injection": "SQLi",
     "Cross-Site Scripting": "XSS",
@@ -32,12 +32,10 @@ SAST_TO_DAST_TYPE_MAPPING = {
 }
 
 def run_correlated_scan(repo_path: str, target_url: str) -> list:
-    """
-    Orchestrates the SAST -> DAST pipeline with structured logging.
-    """
-    logger.info("--- 🚀 Starting Correlated SAST + DAST Scan ---")
+  
+    logger.info("---  Starting Correlated SAST + DAST Scan ---")
     
-    # --- Step 1: Run SAST to get potential targets ---
+    
     sast_findings = sast_scan_directory(repo_path)
     
     if not sast_findings:
@@ -45,7 +43,7 @@ def run_correlated_scan(repo_path: str, target_url: str) -> list:
         return []
         
     logger.info(f"SAST scan complete. Found {len(sast_findings)} potential targets.")
-    logger.info("--- 🎯 Starting DAST confirmation phase ---")
+    logger.info("---  Starting DAST confirmation phase ---")
 
     # --- Step 2: Run targeted DAST to confirm findings ---
     confirmed_vulnerabilities = []
@@ -101,7 +99,7 @@ def run_correlated_scan(repo_path: str, target_url: str) -> list:
                     }
                 })
                 is_confirmed = True
-                break  # Move to the next SAST finding once confirmed
+                break  
         
         if not is_confirmed:
             logger.info(f"[-] NOT CONFIRMED: SAST finding for '{sast_vul_type}' appears to be a false positive or is not reachable.")
@@ -119,10 +117,10 @@ if __name__ == '__main__':
     confirmed_vulns = run_correlated_scan(args.repo_path, args.target_url)
 
     # Final Report
-    logger.info("--- ✅ Correlated Scan Report ---")
+    logger.info("--- Correlated Scan Report ---")
     if confirmed_vulns:
-        logger.info(f"🎉 Found {len(confirmed_vulns)} confirmed vulnerabilities:")
-        # Pretty print the final JSON report
+        logger.info(f" Found {len(confirmed_vulns)} confirmed vulnerabilities:")
+      
         print(json.dumps(confirmed_vulns, indent=2))
     else:
-        logger.info("✅ No SAST findings could be confirmed by DAST.")
+        logger.info("SUCCESS: No SAST findings could be confirmed by DAST.")

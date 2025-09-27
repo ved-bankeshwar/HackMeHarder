@@ -2,7 +2,7 @@ import requests
 import json
 from typing import List, Dict, Any, Tuple
 from urllib.parse import urlparse, urljoin
-from .payloads import PAYLOADS # Import the payloads from the canvas file
+from .payloads import PAYLOADS 
 
 
 def send_malicious_requests(
@@ -37,30 +37,28 @@ def send_malicious_requests(
 
     print(f"[>] Attacking {full_url} ({method}) for {vul_type}...")
 
-    # Iterate over all parameters and payloads to test all combinations
+    
     for param_name in param_names:
         for payload in payload_list:
             
-            # --- 💥 Build the Request Data 💥 ---
-            # Create a dictionary to hold all parameters for the request.
-            # Fill other parameters with benign data to avoid interfering.
+           
             request_data = {p: "DAST_BENIGN_DATA" for p in param_names}
             
-            # Inject the payload into the current target parameter.
+          
             request_data[param_name] = payload
             
             response = None
             
-            # 3. Send the Request
+            
             try:
                 if method == "GET":
-                    # For GET requests, parameters go in the URL
+                  
                     response = requests.get(full_url, params=request_data, timeout=30, allow_redirects=False)
                 elif method == "POST":
-                    # For POST requests, parameters go in the request body
+
                     response = requests.post(full_url, data=request_data, timeout=30, allow_redirects=False)
                 
-                # 4. Collate Result for the Analysis Engine (Member 3)
+
                 if response is not None:
                     results.append({
                         'response': response,
@@ -75,15 +73,10 @@ def send_malicious_requests(
                 
     return results
 
-# ----------------------------------------------------------------------
-# INDEPENDENT TESTING BLOCK (MEMBER 2 FOCUS)
-# Member 2 uses this to test their module without the rest of the team.
-# ----------------------------------------------------------------------
-
 if __name__ == '__main__':
     print("--- Running DAST Attack Engine Mock Tests ---")
     
-    # Mock Targets (Simulate the output of the Crawler - Member 1)
+
     mock_targets = [
         {'url': '/search', 'method': 'GET', 'params': ['q']},
         {'url': '/login', 'method': 'POST', 'params': ['username', 'password']},
@@ -91,13 +84,12 @@ if __name__ == '__main__':
         {'url': '/redirect', 'method': 'GET', 'params': ['next_url']},
     ]
 
-    # Target vulnerabilities from our defined set
+
     vulnerability_checks = ["SQLi", "XSS", "PathTraversal", "UnvalidatedRedirect"]
 
     all_results = []
     
-    # Simulate the main loop of the Main Controller (Member 4)
-    # The base_domain here must point to the sandbox/test server
+
     BASE_URL = "http://localhost:5000"
     print(f"Testing against a mock application running at {BASE_URL}")
 
@@ -110,7 +102,7 @@ if __name__ == '__main__':
     print(f"Total requests generated: {len(all_results)}")
     
     if all_results:
-        # Print a sample of the data structure to confirm it's correct
+
         print("\nExample result structure (passed to Analysis Engine):")
         example = all_results[0]
-        print(json.dumps(example, indent=2, default=str)) # Use default=str to handle response object
+        print(json.dumps(example, indent=2, default=str)) 

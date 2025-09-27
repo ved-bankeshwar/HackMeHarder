@@ -12,7 +12,7 @@ def load_rules(filepath=None):
     if not os.path.exists(filepath):
         filepath = os.path.join(os.path.dirname(__file__), '..', 'rules.yaml')
         if not os.path.exists(filepath):
-            print(f"[!] Error: Rule file 'rules.yaml' not found.")
+            print("[!] Error: Rule file 'rules.yaml' not found.")
             return {}
     with open(filepath, 'r') as f:
         return yaml.safe_load(f)

@@ -14,12 +14,12 @@ from urllib.parse import urlparse
 import os
 import sys
 
-# add project root so "from DAST..." imports work when running from package root
+
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# project modules
+
 
 
 def analyze_vulnerability(result: Dict[str, Any]) -> Tuple[bool, str]:
@@ -42,7 +42,7 @@ def analyze_vulnerability(result: Dict[str, Any]) -> Tuple[bool, str]:
     if not analyzer:
         return False, "No analysis function defined for this vulnerability type."
 
-    # call with payload if required by the analyzer
+  
     if vul_type in ["XSS", "UnvalidatedRedirect"]:
         return analyzer(response, payload)
     else:
@@ -54,7 +54,7 @@ def run_dast(target_url: str) -> List[Dict[str, Any]]:
     - target_url: full URL with scheme (http/https)
     Returns: list of vulnerability dicts (empty if none)
     """
-    print(f"--- DAST Scan Starting ---")
+    print("--- DAST Scan Starting ---")
     print(f" Target: {target_url}")
     print("--------------------------\n")
 
@@ -89,7 +89,6 @@ def run_dast(target_url: str) -> List[Dict[str, Any]]:
                         'reason': reason
                     })
 
-    # Step 4: final report
     print("\n--- Scan Complete ---")
     if vulnerabilities_found:
         print(f" VULNERABILITIES FOUND ({len(vulnerabilities_found)}) ")
@@ -106,7 +105,6 @@ def run_dast(target_url: str) -> List[Dict[str, Any]]:
 
     return vulnerabilities_found
 
-# Keep argparse-based CLI for backward compatibility
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Lightweight DAST CLI for web application security.")
