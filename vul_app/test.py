@@ -8,6 +8,8 @@ import re
 from SAST.vulnerability_scanner import CodeVulnerabilityVisitor, DeserializationAnalyzer
 from SAST.vulnerability_scanner import PathTraversalVisitor, scan_path_traversal_file as path_traversal_scan
 from SAST.vulnerability_scanner import UnvalidatedRedirectVisitor, scan_unvalidated_redirect_file as unvalidated_redirect_scan
+from SAST.vulnerability_scanner import scan_xxe_file
+
 
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -136,10 +138,12 @@ class TestSastScanners(unittest.TestCase):
             "insecure": self.all_rules.get('insecure_parsing_rules', []),
             "safe": self.all_rules.get('safe_xml_modules', [])
         }
-        findings = xxe_scan(self.vulnerable_filepath, self.vulnerable_tree, xxe_rules)
+
+        findings = scan_xxe_file(self.vulnerable_filepath, self.vulnerable_tree, xxe_rules)
         print("\n[XXE] findings:")
         print(json.dumps(findings, indent=2))
         self.assertTrue(len(findings) > 0)
+
 
     def test_07_unvalidated_redirect_scanner(self):
         ur_rules = self.all_rules.get('taint_analysis_rules', {}).get('unvalidated_redirect', {})
