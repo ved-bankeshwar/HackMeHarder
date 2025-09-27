@@ -9,14 +9,14 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 sys.path.insert(0, project_root)
 
 # --- Import the actual modules from your project structure ---
-# Member 1's Crawler
+#Crawler
 from DAST.crawlers.index import crawl
 
-# Member 2's Attack Engine and Payloads
+#Attack Engine and Payloads
 from DAST.attack_payload.attack_engine import send_malicious_requests
 from DAST.attack_payload.payloads import PAYLOADS
 
-# Member 3's Analysis Engine
+#Analysis Engine
 from DAST.analysis_engine.index import (
 is_vulnerable_to_sqli,
 is_vulnerable_to_xss,
@@ -39,21 +39,20 @@ def analyze_vulnerability(result: Dict[str, Any]) -> Tuple[bool, str]:
     response = result['response']
     payload = result['payload']
 
-    # --- Mapping from vulnerability type string to the correct analysis function ---
+    
     analysis_functions: Dict[str, Callable[..., Tuple[bool, str]]] = {
     "SQLi": is_vulnerable_to_sqli,
-    "XSS": lambda r, p: is_vulnerable_to_xss(r, p), # Use lambda to match signature
+    "XSS": lambda r, p: is_vulnerable_to_xss(r, p), 
     "PathTraversal": is_vulnerable_to_path_traversal,
     "UnvalidatedRedirect": lambda r, p: is_vulnerable_to_redirect(r, p)
     }
 
-    # Get the specific analysis function for the current vulnerability type
+    
     analyzer = analysis_functions.get(vul_type)
 
     if not analyzer:
         return False, "No analysis function defined for this vulnerability type."
 
-    # Some functions need the payload, some don't. We call them accordingly.
     if vul_type in ["XSS", "UnvalidatedRedirect"]:
         return analyzer(response, payload)
     else:
@@ -65,7 +64,7 @@ def main():
     """
     The main DAST CLI controller. Orchestrates the entire scanning process.
     """
-    parser = argparse.ArgumentParser(description="🚀 Lightweight DAST CLI for web application security.")
+    parser = argparse.ArgumentParser(description=" Lightweight DAST CLI for web application security.")
     parser.add_argument("--url", type=str, required=True, help="The target URL to scan (e.g., http://testphp.vulnweb.com/).")
 
     args = parser.parse_args()
@@ -73,7 +72,7 @@ def main():
 
     # --- Start Scan ---
     print(f"--- DAST Scan Starting ---")
-    print(f"🎯 Target: {target_url}")
+    print(f" Target: {target_url}")
     print("--------------------------\n")
 
     # Step 1: Call the Crawler (Member 1) to discover attack surfaces
@@ -89,7 +88,6 @@ def main():
     # Step 2: Loop through each discovered target and each vulnerability type
     for target in attackable_targets:
         for vul_type in vulnerability_checks:
-
             # Step 3: Call the Attack Engine (Member 2) to send malicious requests
             # The base_domain is derived from the initial target URL
             parsed_uri = urlparse(target_url)
@@ -113,7 +111,7 @@ def main():
     # Step 5: Print a clean, final report
     print("\n--- Scan Complete ---")
     if vulnerabilities_found:
-        print(f"🎉 VULNERABILITIES FOUND ({len(vulnerabilities_found)}) 🎉")
+        print(f" VULNERABILITIES FOUND ({len(vulnerabilities_found)}) ")
         for vul in vulnerabilities_found:
             print("---------------------------------")
             print(f"Vulnerability: {vul['type']}")
@@ -123,7 +121,7 @@ def main():
             print(f"Reason: {vul['reason']}")
             print("---------------------------------")
     else:
-        print("✅ No vulnerabilities detected. The application appears secure.")
+        print(" No vulnerabilities detected. The application appears secure.")
 
 
 if __name__ == '__main__':
