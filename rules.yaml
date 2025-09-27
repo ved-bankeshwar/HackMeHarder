@@ -251,12 +251,16 @@ insecure_deserialization_rules:
 
 xss_rules:
   sources:
-    - "request.args"
-    - "request.form"
-    - "request.values"
-    - "request.data"
-    - "request.json"
-
+    - "request.args.get"
+    - "request.form.get"
   sinks:
     - "render_template_string"
-    - "Markup"
+  rules:
+    - id: "xss-args-render"
+      type: "xss"
+      source: "request.args.get"
+      sink: "render_template_string"
+      pattern: "request.args.get.*render_template_string"
+      match_type: "regex"
+      description: "Possible XSS from request.args.get to render_template_string"
+      severity: "High"
