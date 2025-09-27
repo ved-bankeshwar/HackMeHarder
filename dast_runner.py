@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional
 #sys.path.append(os.path.join(os.path.dirname(__file__), 'DAST'))
 
 try:
-    from DAST.crawlers.index import crawl_site
+    from DAST.crawlers.index import crawl
     from DAST.attack_payload.attack_engine import perform_targeted_scan
     from DAST.analysis_engine.index import analyze_responses
 except ImportError as e:
@@ -60,7 +60,7 @@ def run_dast(target_url: str, sast_findings: Optional[List[Dict[str, Any]]] = No
         
         # 1. Crawl the website to find links and forms
         print("[*] Step 1: Crawling the website...")
-        discovered_endpoints = crawl_site(target_url)
+        discovered_endpoints = crawl(target_url)
         if not discovered_endpoints:
             print("[-] Crawler found no actionable endpoints. Halting scan.")
             return []
