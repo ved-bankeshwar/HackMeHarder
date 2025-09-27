@@ -1,4 +1,9 @@
-import os, sys, json, yaml, ast, argparse
+import os
+import sys
+import json
+import yaml
+import ast
+import argparse
 from SAST import secrets_scanner, vulnerability_scanner
 
 def load_all_rules(filepath='rules.yaml'):
