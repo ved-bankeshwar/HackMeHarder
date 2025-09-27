@@ -1,4 +1,4 @@
-# /cli.py
+# cli.py
 import click
 import json
 import os
@@ -42,16 +42,7 @@ def dast_command(url: str):
         click.secho("Error: Invalid URL. Please include http/https (e.g., http://127.0.0.1:5000).", fg='red')
         raise click.Abort()
 
-    click.secho(f"[*] Running DAST scan on: {url}", fg='cyan')
-    dast_findings = run_dast(url)
-
-    click.secho("\n--- DAST Scan Report ---", bold=True)
-    if dast_findings:
-        # DAST output is already printed by the run_dast function,
-        # but we can add a summary here.
-        click.secho(f"\n[+] DAST scan complete. Found {len(dast_findings)} vulnerabilities.", fg='red', bold=True)
-    else:
-        click.secho("\n[+] DAST scan complete. No vulnerabilities found.", fg='green')
+    run_dast(url)
 
 @cli.command('full-scan')
 @click.argument('path', type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True))
@@ -66,10 +57,7 @@ def full_scan_command(path: str, url: str):
         raise click.Abort()
 
     absolute_path = os.path.abspath(path)
-    click.secho("[*] Starting Correlated SAST + DAST Scan", fg='cyan', bold=True)
-    click.secho(f"    - SAST Path: {absolute_path}", fg='cyan')
-    click.secho(f"    - DAST URL:  {url}", fg='cyan')
-
+    
     confirmed_vulns = run_correlated_scan(absolute_path, url)
 
     click.secho("\n--- ✅ Correlated Scan Report ---", bold=True)
