@@ -1,54 +1,34 @@
+# SAST_check.py
+import unittest
+import importlib.util
 import os
 import sys
-import json
-import yaml
-import ast
-import argparse
-from SAST import secrets_scanner, vulnerability_scanner
 
-def load_all_rules(filepath='rules.yaml'):
-    try:
-        with open(filepath, 'r') as f: return yaml.safe_load(f) or {}
-    except FileNotFoundError:
-        print(f"Error: Rules file '{filepath}' not found.", file=sys.stderr)
-        return {}
+# --- Set project root dynamically ---
+PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
+sys.path.insert(0, PROJECT_ROOT)  # Allow imports from SAST and vul_app
 
-def main():
-    parser = argparse.ArgumentParser(description="A Unified SAST Scanner.")
-    parser.add_argument("target", help="The target file or directory to scan.")
-    parser.add_argument("--rules", default="rules.yaml", help="Path to the YAML rule file.")
-    args = parser.parse_args()
+# --- Path to test.py inside vul_app ---
+TEST_PATH = os.path.join(PROJECT_ROOT, "vul_app", "test.py")
 
-    all_rules = load_all_rules(args.rules)
-    if not all_rules: sys.exit(1)
+# --- Dynamically import the test module ---
+spec = importlib.util.spec_from_file_location("test_module", TEST_PATH)
+test_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(test_module)
 
-    if os.path.isfile(args.target):
-        target_files = [args.target] if args.target.endswith('.py') else []
-    else:
-        target_files = [os.path.join(r, f) for r, d, fs in os.walk(args.target) for f in fs if f.endswith('.py')]
+def run_sast_checks():
+    """Run all SAST tests from vul_app/test.py."""
+    loader = unittest.TestLoader()
+    suite = loader.loadTestsFromModule(test_module)
 
-    all_findings = []
-    print(f"[*] Scanning {len(target_files)} Python file(s)...")
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
 
-    for file_path in target_files:
-        # Run secrets scanner
-        findings = secrets_scanner.scan(file_path, all_rules.get('regex_rules', []))
-        all_findings.extend(findings)
+    print("\n===== SAST CHECK COMPLETE =====")
+    print(f"Ran {result.testsRun} tests")
+    print(f"Failures: {len(result.failures)}, Errors: {len(result.errors)}")
 
-        # Run AST code scanner
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                tree = ast.parse(f.read(), filename=file_path)
-                findings = vulnerability_scanner.scan(file_path, tree, all_rules)
-                all_findings.extend(findings)
-        except Exception: pass
+    return result
 
-    if all_findings:
-        print(f"\n[+] Found {len(all_findings)} total vulnerabilities:")
-        all_findings.sort(key=lambda x: (x.get('file'), x.get('line')))
-        print(json.dumps(all_findings, indent=2))
-    else:
-        print("\n[-] No vulnerabilities found.")
-
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    run_sast_checks()
