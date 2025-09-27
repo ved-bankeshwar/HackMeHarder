@@ -135,21 +135,9 @@ safe_xml_modules:
   - "xml.sax.handler"
 
 taint_analysis_rules:
-  path_traversal:
-    id: "path-traversal"
-    description: "Potential Path Traversal: User-controlled input is used in a file path."
-    severity: "High"
-    sources:
-      - "request.args.get"
-      - "request.form.get"
-    sinks:
-      - "open"
-      - "os.path.join"
-      - "pathlib.Path"
-      - "io.open"
-
   sql_injection:
     id: "sql-injection"
+    name: "SQL Injection" # <-- ADDED NAME
     description: "Potential SQL Injection: User-controlled input flows into a database query execution."
     severity: "Critical"
     sources:
@@ -158,12 +146,22 @@ taint_analysis_rules:
     sinks:
       - "cursor.execute"
       - "cursor.executemany"
-      - "cursor.raw_execute"
-      - "pandas.read_sql_query"
-      - "sqlalchemy.text"
-  
+
+  path_traversal:
+    id: "path-traversal"
+    name: "Path Traversal" # <-- ADDED NAME
+    description: "Potential Path Traversal: User-controlled input is used in a file path operation."
+    severity: "High"
+    sources:
+      - "request.args.get"
+      - "request.form.get"
+    sinks:
+      - "open"
+      - "os.path.join"
+
   command_injection:
     id: "command-injection"
+    name: "Command Injection" # <-- ADDED RULE
     description: "Potential Command Injection: User-controlled input flows into a system command."
     severity: "Critical"
     sources:
@@ -171,14 +169,13 @@ taint_analysis_rules:
       - "request.form.get"
     sinks:
       - "os.system"
-      - "os.popen"  
       - "subprocess.run"
       - "subprocess.call"
-      - "subprocess.Popen"
-      - "shlex.split"
+      - "subprocess.check_output"
 
   unvalidated_redirect:
     id: "unvalidated-redirect"
+    name: "Unvalidated Redirect" # <-- ADDED NAME
     description: "Potential Unvalidated Redirect: User-controlled input is used in a redirect function."
     severity: "Medium"
     sources:
@@ -186,8 +183,7 @@ taint_analysis_rules:
       - "request.form.get"
     sinks:
       - "flask.redirect"
-      - "django.shortcuts.redirect"
-      - "django.http.HttpResponseRedirect"
+      - "redirect"
 
 insecure_deserialization_rules:
   - id: "insecure-pickle-load"
@@ -250,17 +246,10 @@ insecure_deserialization_rules:
             is_formatted_string: True
 
 xss_rules:
+  id: "xss"
+  name: "Cross-Site Scripting" # <-- ADDED NAME
   sources:
     - "request.args.get"
     - "request.form.get"
   sinks:
     - "render_template_string"
-  rules:
-    - id: "xss-args-render"
-      type: "xss"
-      source: "request.args.get"
-      sink: "render_template_string"
-      pattern: "request.args.get.*render_template_string"
-      match_type: "regex"
-      description: "Possible XSS from request.args.get to render_template_string"
-      severity: "High"

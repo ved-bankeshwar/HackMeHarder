@@ -1,133 +1,128 @@
-import re
+# /correlation_engine.py
+from SAST_check import sast_scan_directory
+from DAST.attack_payload.attack_engine import send_malicious_requests
+from DAST.main_controller.dast_cli import analyze_vulnerability
+import os
+import sys
+import json
+import logging
+from urllib.parse import urlparse
 
-def is_vulnerable_to_sqli(response):
+# --- Set up structured logging ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
-    sql_errors = [
-        "you have an error in your sql syntax;",
-        "warning: mysql_fetch_array()",
-        "unclosed quotation mark after the character string",
-        "quoted string not properly terminated",
-        "sql command not properly ended",
-        "oracle driver error",
-        "microsoft ole db provider for odbc drivers error"
-    ]
-
-    response_text = response.text.lower()
-    for error in sql_errors:
-        if error in response_text:
-            return (True, f"Detected SQL Error fingerprint: '{error}'")
-            
-    return (False, None)
+# --- Add project root to sys.path to allow imports ---
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 
-def is_vulnerable_to_xss(response, payload):
+
+# Maps the verbose SAST type from rules.yaml to the short DAST type used in PAYLOADS
+SAST_TO_DAST_TYPE_MAPPING = {
+    "SQL Injection": "SQLi",
+    "Cross-Site Scripting": "XSS",
+    "Path Traversal": "PathTraversal",
+    "Command Injection": "CommandInjection",
+}
+
+def run_correlated_scan(repo_path: str, target_url: str) -> list:
+    """
+    Orchestrates the SAST -> DAST pipeline with structured logging.
+    """
+    logger.info("--- 🚀 Starting Correlated SAST + DAST Scan ---")
     
-    if payload in response.text:
-        escaped_payload = payload.replace("<", "&lt;").replace(">", "&gt;")
-        if escaped_payload in response.text:
-            return (False, None)
-        return (True, f"Payload '{payload}' was reflected in the response without proper escaping.")
-
-    return (False, None)
-
-
-def is_vulnerable_to_path_traversal(response):
+    # --- Step 1: Run SAST to get potential targets ---
+    sast_findings = sast_scan_directory(repo_path)
     
-    # Fingerprints for common sensitive files
-    # 'root:x:0:0' is a classic indicator from /etc/passwd
-    # '[fonts]' is from C:\Windows\win.ini
-    sensitive_content_fingerprints = [
-        "root:x:0:0",  
-        "[fonts]"
-    ]
-    
-    response_text = response.text
-    for fingerprint in sensitive_content_fingerprints:
-        if fingerprint in response_text:
-            return (True, f"Detected sensitive file content: '{fingerprint}'")
-
-    return (False, None)
-
-
-def is_vulnerable_to_redirect(response, payload):
-
-    # Response.is_redirect is a handy property from the requests library
-    # that checks if the status code is in the 3xx range.
-    if response.is_redirect:
-        # Check the 'Location' header to see where it's redirecting to.
-        location_header = response.headers.get('Location', '')
-        if payload in location_header:
-            return (True, f"Application redirected to a malicious URL: {location_header}")
-
-    return (False, None)
-
-
-# This block allows the script to be run directly for testing by Member 3
-if __name__ == "__main__":
-
-    # We need a more advanced mock to handle status codes and headers for redirect tests
-    class MockResponse:
-        def __init__(self, text, status_code=200, headers=None):
-            self.text = text
-            self.status_code = status_code
-            self.headers = headers or {}
+    if not sast_findings:
+        logger.info("[✅] SAST scan completed. No potential web vulnerabilities found to confirm.")
+        return []
         
-        @property
-        def is_redirect(self):
-            return self.status_code in (301, 302, 303, 307, 308)
+    logger.info(f"SAST scan complete. Found {len(sast_findings)} potential targets.")
+    logger.info("--- 🎯 Starting DAST confirmation phase ---")
 
-    print("RUNNING ENGINE")
+    # --- Step 2: Run targeted DAST to confirm findings ---
+    confirmed_vulnerabilities = []
+    parsed_uri = urlparse(target_url)
+    base_domain = f"{parsed_uri.scheme}://{parsed_uri.netloc}"
 
-    # --- SQLi Tests ---
-    sqli_response = MockResponse("<html><body>You have an error in your SQL syntax; check the manual</body></html>")
-    is_vuln, reason = is_vulnerable_to_sqli(sqli_response)
+    for i, finding in enumerate(sast_findings, 1):
+        sast_vul_type = finding.get("type")
+        
+        logger.info(f"Processing SAST finding {i}/{len(sast_findings)}: '{sast_vul_type}' in file '{finding.get('file')}'")
+        logger.debug(f"Raw SAST finding details: {finding}")
 
+        # --- FIX IS HERE ---
+        # Check if the finding has the necessary web context to be actionable by DAST.
+        required_keys = ['url', 'method', 'param']
+        if not all(key in finding for key in required_keys):
+            logger.warning(f"Skipping finding for '{sast_vul_type}': It is not a web-related finding with a URL and parameter.")
+            continue
+        # --- END FIX ---
 
-    print(f"SQLi Test (Positive): Vulnerable = {is_vuln}, Reason = {reason}")
-    assert is_vuln
+        dast_vul_type = SAST_TO_DAST_TYPE_MAPPING.get(sast_vul_type)
+        if not dast_vul_type:
+            logger.warning(f"Skipping SAST finding '{sast_vul_type}': No DAST module mapping found.")
+            continue
 
-    safe_response = MockResponse("<html><body>Welcome to our website!</body></html>")
-    is_vuln, reason = is_vulnerable_to_sqli(safe_response)
-    print(f"SQLi Test (Negative): Vulnerable = {is_vuln}, Reason = {reason}")
-    assert not is_vuln
+        # Construct the precise target for the DAST engine
+        target_for_dast = {
+            'url': finding.get('url'),
+            'method': finding.get('method'),
+            'params': [finding.get('param')]
+        }
+        logger.debug(f"Constructed DAST Target: {target_for_dast}")
 
-    # --- XSS Tests ---
-    xss_payload = "<script>alert('hack')</script>"
-    xss_response = MockResponse(f"<html><body>Your search for '{xss_payload}' returned 0 results.</body></html>")
-    is_vuln, reason = is_vulnerable_to_xss(xss_response, xss_payload)
+        logger.info(f"-> Testing for '{sast_vul_type}' at {target_for_dast['method']} {target_for_dast['url']} (param: {finding.get('param')})")
 
-    print(f"XSS Test (Positive): Vulnerable = {is_vuln}, Reason = {reason}")
-    assert is_vuln
+        # Run the attack
+        attack_results = send_malicious_requests(target_for_dast, dast_vul_type, base_domain=base_domain)
+        
+        is_confirmed = False
+        for result in attack_results:
+            is_vuln, reason = analyze_vulnerability(result)
+            if is_vuln:
+                logger.info(f"[+] CONFIRMED: {sast_vul_type} vulnerability found!")
+                confirmed_vulnerabilities.append({
+                    'type': sast_vul_type,
+                    'url': result.get('target_url'),
+                    'param': result.get('target_param'),
+                    'payload_used': result.get('payload'),
+                    'confirmation_reason': reason,
+                    'sast_origin': {
+                        'file': finding.get('file'),
+                        'line': finding.get('line'),
+                    }
+                })
+                is_confirmed = True
+                break  # Move to the next SAST finding once confirmed
+        
+        if not is_confirmed:
+            logger.info(f"[-] NOT CONFIRMED: SAST finding for '{sast_vul_type}' appears to be a false positive or is not reachable.")
 
-    escaped_xss_response = MockResponse("<html><body>Your search for '&lt;script&gt;alert('hack')&lt;/script&gt;' returned 0 results.</body></html>")
-    is_vuln, reason = is_vulnerable_to_xss(escaped_xss_response, xss_payload)
-    print(f"XSS Test (Negative, Escaped): Vulnerable = {is_vuln}, Reason = {reason}")
-    assert not is_vuln
-    
-    # --- Path Traversal Tests ---
-    path_trav_response = MockResponse("root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin")
-    is_vuln, reason = is_vulnerable_to_path_traversal(path_trav_response)
+    return confirmed_vulnerabilities
 
+if __name__ == '__main__':
+    import argparse
 
-    print(f"Path Traversal Test (Positive): Vulnerable = {is_vuln}, Reason = {reason}")
-    assert is_vuln
-    
-    is_vuln, reason = is_vulnerable_to_path_traversal(safe_response)
-    print(f"Path Traversal Test (Negative): Vulnerable = {is_vuln}, Reason = {reason}")
-    assert not is_vuln
+    parser = argparse.ArgumentParser(description="Run a correlated SAST+DAST scan.")
+    parser.add_argument("repo_path", help="The local path to the code repository.")
+    parser.add_argument("target_url", help="The live URL of the application to test.")
+    args = parser.parse_args()
 
-    # --- Unvalidated Redirect Tests ---
-    redirect_payload = "http://evil-site.com"
-    redirect_headers = {'Location': redirect_payload}
-    redirect_response = MockResponse("Redirecting...", status_code=302, headers=redirect_headers)
-    is_vuln, reason = is_vulnerable_to_redirect(redirect_response, redirect_payload)
-    print(f"Redirect Test (Positive): Vulnerable = {is_vuln}, Reason = {reason}")
-    assert is_vuln
-    
-    safe_redirect_response = MockResponse("Redirecting...", status_code=302, headers={'Location': '/safe-local-page'})
-    is_vuln, reason = is_vulnerable_to_redirect(safe_redirect_response, redirect_payload)
-    print(f"Redirect Test (Negative): Vulnerable = {is_vuln}, Reason = {reason}")
-    assert not is_vuln
-    
-    print("\n--- ALL TESTS PASSED ---")
+    confirmed_vulns = run_correlated_scan(args.repo_path, args.target_url)
 
+    # Final Report
+    logger.info("--- ✅ Correlated Scan Report ---")
+    if confirmed_vulns:
+        logger.info(f"🎉 Found {len(confirmed_vulns)} confirmed vulnerabilities:")
+        # Pretty print the final JSON report
+        print(json.dumps(confirmed_vulns, indent=2))
+    else:
+        logger.info("✅ No SAST findings could be confirmed by DAST.")

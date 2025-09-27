@@ -55,10 +55,10 @@ def send_malicious_requests(
             try:
                 if method == "GET":
                     # For GET requests, parameters go in the URL
-                    response = requests.get(full_url, params=request_data, timeout=5, allow_redirects=False)
+                    response = requests.get(full_url, params=request_data, timeout=30, allow_redirects=False)
                 elif method == "POST":
                     # For POST requests, parameters go in the request body
-                    response = requests.post(full_url, data=request_data, timeout=5, allow_redirects=False)
+                    response = requests.post(full_url, data=request_data, timeout=30, allow_redirects=False)
                 
                 # 4. Collate Result for the Analysis Engine (Member 3)
                 if response is not None:
