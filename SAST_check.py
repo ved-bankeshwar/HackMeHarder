@@ -1,54 +1,133 @@
+import unittest
 import os
 import sys
-import json
-import yaml
 import ast
-import argparse
-from SAST import secrets_scanner, vulnerability_scanner
 
-def load_all_rules(filepath='rules.yaml'):
-    try:
-        with open(filepath, 'r') as f: return yaml.safe_load(f) or {}
-    except FileNotFoundError:
-        print(f"Error: Rules file '{filepath}' not found.", file=sys.stderr)
-        return {}
+# --- THE FIX: Adjust Python's Import Path ---
+# This line finds the absolute path of the current test file.
+# Then it goes up two directories (from /SAST/vul_app/ to /SAST/)
+# and adds that SAST directory to the list of places Python looks for modules.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-def main():
-    parser = argparse.ArgumentParser(description="A Unified SAST Scanner.")
-    parser.add_argument("target", help="The target file or directory to scan.")
-    parser.add_argument("--rules", default="rules.yaml", help="Path to the YAML rule file.")
-    args = parser.parse_args()
+# Now, these imports will work because Python knows to look in the SAST folder
+from SAST import secrets_scanner
+from SAST import vulnerability_scanner
 
-    all_rules = load_all_rules(args.rules)
-    if not all_rules: sys.exit(1)
+# --- Preloaded Rules for a Self-Contained Test ---
+MOCK_RULES = {
+    'secret_rules': [
+        {
+            'id': 'aws-secret-access-key',
+            'description': 'AWS Secret Access Key found',
+            'severity': 'Critical',
+            'regex': r"(?i)aws(.{0,20})?['\"][0-9a-zA-Z\\/+]{40}['\"]"
+        }
+    ],
+    'weak_crypto_rules': [
+        {
+            'id': 'weak-crypto-md5',
+            'description': 'Use of weak hashing algorithm MD5.',
+            'pattern': 'hashlib.md5',
+            'severity': 'High'
+        }
+    ],
+    'xss_rules': {
+        'sources': ['request.args.get'],
+        'sinks': ['render_template_string']
+    },
+    'path_traversal_rules': {
+        'sources': ['request.args.get'],
+        'sinks': ['open']
+    },
+    'unvalidated_redirect_rules': {
+        'sources': ['request.args.get'],
+        'sinks': ['redirect']
+    },
+    'xxe_rules': {
+        'insecure': [
+            {
+                'id': 'xxe-lxml',
+                'pattern': 'lxml.etree.parse',
+                'description': 'lxml.etree.parse is vulnerable to XXE.',
+                'severity': 'High'
+            }
+        ],
+        'safe': []
+    }
+}
 
-    if os.path.isfile(args.target):
-        target_files = [args.target] if args.target.endswith('.py') else []
-    else:
-        target_files = [os.path.join(r, f) for r, d, fs in os.walk(args.target) for f in fs if f.endswith('.py')]
 
-    all_findings = []
-    print(f"[*] Scanning {len(target_files)} Python file(s)...")
+MOCK_VULNERABLE_CODE = """
+import hashlib
+import pickle
+import os
+from flask import request, render_template_string, redirect
+from lxml import etree
 
-    for file_path in target_files:
-        # Run secrets scanner
-        findings = secrets_scanner.scan(file_path, all_rules.get('regex_rules', []))
-        all_findings.extend(findings)
+aws_key = "AWS_KEY_AKIAIOSFODNN7EXAMPLE" # Regex match
+random_key = "a1b2c3d4e5f6a7b8c9d0a1b2c3d4e5f6a7b8c9d0" # High entropy
 
-        # Run AST code scanner
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                tree = ast.parse(f.read(), filename=file_path)
-                findings = vulnerability_scanner.scan(file_path, tree, all_rules)
-                all_findings.extend(findings)
-        except Exception: pass
+def weak_crypto():
+    hashed_pass = hashlib.md5(b"password").hexdigest()
 
-    if all_findings:
-        print(f"\n[+] Found {len(all_findings)} total vulnerabilities:")
-        all_findings.sort(key=lambda x: (x.get('file'), x.get('line')))
-        print(json.dumps(all_findings, indent=2))
-    else:
-        print("\n[-] No vulnerabilities found.")
+def insecure_deserialization(data):
+    return pickle.load(data)
+
+def xss_vulnerability():
+    user_input = request.args.get('name')
+    return render_template_string(f"<h1>Hello {user_input}</h1>")
+
+def path_traversal_vulnerability():
+    filename = request.args.get('file')
+    with open(filename, 'r') as f:
+        return f.read()
+
+def unvalidated_redirect_vulnerability():
+    target = request.args.get('url')
+    return redirect(target)
+
+def xxe_vulnerability(xml_file):
+    return etree.parse(xml_file)
+"""
+
+
+class TestSastScanners(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.all_rules = MOCK_RULES
+        cls.vulnerable_filepath = 'test_vulnerable_code.py'
+        with open(cls.vulnerable_filepath, 'w') as f:
+            f.write(MOCK_VULNERABLE_CODE)
+        with open(cls.vulnerable_filepath, 'r') as f:
+            cls.vulnerable_tree = ast.parse(f.read(), filename=cls.vulnerable_filepath)
+
+    @classmethod
+    def tearDownClass(cls):
+        os.remove(cls.vulnerable_filepath)
+
+    def test_01_secret_scanner_regex(self):
+        findings = secrets_scanner.scan_file_for_secrets(
+            self.vulnerable_filepath, self.all_rules.get('secret_rules', [])
+        )
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0]['rule_id'], 'aws-secret-access-key')
+
+    def test_02_weak_crypto_scanner(self):
+        visitor = vulnerability_scanner.CodeVulnerabilityVisitor(
+            self.vulnerable_filepath, self.all_rules.get('weak_crypto_rules', [])
+        )
+        visitor.visit(self.vulnerable_tree)
+        self.assertEqual(len(visitor.findings), 1)
+        self.assertEqual(visitor.findings[0]['rule_id'], 'weak-crypto-md5')
+
+    def test_03_deserialization_scanner(self):
+        analyzer = vulnerability_scanner.DeserializationAnalyzer(self.vulnerable_filepath)
+        analyzer.visit(self.vulnerable_tree)
+        self.assertEqual(len(analyzer.vulnerabilities), 1)
+        self.assertEqual(analyzer.vulnerabilities[0]['type'], 'Insecure Deserialization')
+
+    # Add other tests here...
 
 if __name__ == '__main__':
-    main()
+    unittest.main()
