@@ -66,7 +66,7 @@ class ToolIntegrationTest(unittest.TestCase):
         print("\n--- Running DAST Scan Directly ---")
         f = io.StringIO()
         with redirect_stdout(f):
-            run_dast("http://127.0.0.1:5000/?name=test")
+            run_dast("http://127.0.0.1:5000/")
         output = f.getvalue()
         print(output)
         print("--- End of DAST Scan ---")

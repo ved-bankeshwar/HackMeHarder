@@ -107,6 +107,47 @@ def is_vulnerable_to_redirect(response, payload):
 
     return (False, None)
 
+def analyze_responses(results):
+    """
+    Runs all analysis checks on the list of attack results.
+
+    Args:
+        results (list): list of dicts returned by send_malicious_requests,
+                        each containing keys: 'response', 'payload', 'target_url', 'target_param', 'vul_type'
+
+    Returns:
+        list: confirmed vulnerabilities (each as a dict)
+    """
+    confirmed = []
+
+    for result in results:
+        vul_type = result.get("vul_type")
+        response = result.get("response")
+        payload = result.get("payload")
+
+        if vul_type == "SQLi":
+            is_vuln, reason = is_vulnerable_to_sqli(response)
+        elif vul_type == "XSS":
+            is_vuln, reason = is_vulnerable_to_xss(response, payload)
+        elif vul_type == "PathTraversal":
+            is_vuln, reason = is_vulnerable_to_path_traversal(response)
+        elif vul_type == "UnvalidatedRedirect":
+            is_vuln, reason = is_vulnerable_to_redirect(response, payload)
+        else:
+            is_vuln, reason = (False, None)
+
+        if is_vuln:
+            confirmed.append({
+                "type": vul_type,
+                "url": result.get("target_url"),
+                "param": result.get("target_param"),
+                "payload": payload,
+                "reason": reason
+            })
+
+    return confirmed
+
+
 
 # This block allows the script to be run directly for testing by Member 3
 if __name__ == "__main__":

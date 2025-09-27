@@ -80,6 +80,77 @@ def send_malicious_requests(
 # Member 2 uses this to test their module without the rest of the team.
 # ----------------------------------------------------------------------
 
+# Add this to DAST/attack_payload/attack_engine.py (after send_malicious_requests)
+
+from typing import Optional
+from ..crawlers.index import crawl  # local import; uses your existing crawler
+
+def perform_targeted_scan(target_url: str, sast_findings: Optional[list]) -> list:
+    """
+    Perform a targeted DAST confirmation scan.
+    - target_url: base URL (e.g. 'http://127.0.0.1:5000' or 'http://localhost:5000')
+    - sast_findings: list of findings from SAST (may be empty or None)
+    Returns: list of attack result dicts (same shape as send_malicious_requests returns)
+    """
+    results = []
+
+    # Defensive normalization
+    if sast_findings is None:
+        sast_findings = []
+
+    # --- Targeted mode: try to confirm SAST findings ---
+    if sast_findings:
+        print(f"[*] Running targeted confirmation for {len(sast_findings)} SAST finding(s).")
+        session = requests.Session()
+
+        for finding in sast_findings:
+            # Normalize a few common keys used in your repo's SAST output:
+            vul_type = finding.get("vul_type") or finding.get("type") or finding.get("vulnerability") or finding.get("name")
+            rel_url = finding.get("url") or finding.get("relative_url") or finding.get("endpoint") or finding.get("path")
+            param = finding.get("param") or finding.get("params") or finding.get("parameter")
+            method = (finding.get("method") or "GET").upper()
+
+            # If the finding is not mappable to an HTTP target, skip it.
+            if not rel_url or not vul_type or not param:
+                # skip but log; some SAST findings are code-only and cannot be targeted directly
+                print(f"[-] Skipping SAST finding (not mappable to HTTP): {finding}")
+                continue
+
+            full_endpoint = urljoin(target_url, rel_url)
+            # Build a "target" dict compatible with send_malicious_requests:
+            target = {"url": rel_url, "method": method, "params": [param] if isinstance(param, str) else list(param)}
+
+            # Use send_malicious_requests for this specific vulnerability type
+            try:
+                attack_results = send_malicious_requests(target, vul_type, base_domain=target_url)
+                results.extend(attack_results)
+            except Exception as e:
+                print(f"[!] Error while performing targeted requests for {full_endpoint}: {e}")
+                continue
+
+        return results
+
+    # --- Discovery mode: no SAST findings provided ---
+    print("[*] No SAST findings provided — running discovery-mode attacks.")
+    try:
+        discovered = crawl(target_url)
+    except Exception as e:
+        print(f"[!] Crawler failed: {e}. Discovery aborted.")
+        return []
+
+    # For each discovered endpoint, try each payload type
+    for endpoint in discovered:
+        for vul_type in PAYLOADS.keys():
+            try:
+                res = send_malicious_requests(endpoint, vul_type, base_domain=target_url)
+                results.extend(res)
+            except Exception as e:
+                print(f"[!] Error attacking {endpoint.get('url')}: {e}")
+                continue
+
+    return results
+
+
 if __name__ == '__main__':
     print("--- Running DAST Attack Engine Mock Tests ---")
     
