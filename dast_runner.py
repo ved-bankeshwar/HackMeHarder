@@ -1,106 +1,70 @@
-import os
-import sys
-import requests
-from typing import List, Dict, Any, Optional
+# dast_runner.py
 
-# Add the DAST directory to the Python path for module imports
-#sys.path.append(os.path.join(os.path.dirname(__file__), 'DAST'))
+import sys
+import os
+import requests
+
+# Adjust path to import from parent directory
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from DAST.crawlers.index import crawl
-    from DAST.attack_payload.attack_engine import perform_targeted_scan
-    from DAST.analysis_engine.index import analyze_responses
+    # --- FIX: Import the Crawler CLASS, not the old 'crawl' function ---
+    from DAST.crawlers.index import Crawler
+    from DAST.attack_payload.attack_engine import AttackEngine
+    from DAST.analysis_engine.index import analyze_response
 except ImportError as e:
     print(f"[!] Error: Failed to import DAST modules. Make sure they are in the DAST/ directory. Details: {e}")
     sys.exit(1)
 
-def run_dast(target_url: str, sast_findings: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+def run_dast(target_url, sast_findings=None):
     """
-    Executes a Dynamic Application Security Testing (DAST) scan on a target URL.
-
-    This function orchestrates the DAST process:
-    1. If SAST findings are provided, it runs a targeted DAST scan to confirm them.
-    2. If no SAST findings are provided, it performs a broad scan:
-        a. Crawls the website to discover pages and entry points.
-        b. Launches a series of generic attacks against discovered points.
-        c. Analyzes the responses for evidence of vulnerabilities.
-
-    Args:
-        target_url: The base URL of the web application to be tested.
-        sast_findings: An optional list of dictionaries, each representing a SAST finding.
-
-    Returns:
-        A list of dictionaries, where each dictionary is a confirmed DAST vulnerability.
+    Runs the DAST scan.
+    - If sast_findings is None, runs in discovery mode.
+    - If sast_findings is provided, runs in targeted confirmation mode.
     """
     print(f"[*] Starting DAST scan for target: {target_url}")
-    
-    # Simple check to ensure the target URL is reachable
-    try:
-        response = requests.get(target_url, timeout=10, allow_redirects=True)
-        if response.status_code >= 400:
-            print(f"[!] Error: Target URL is unreachable. Status code: {response.status_code}")
-            return []
-    except requests.RequestException as e:
-        print(f"[!] Error: Could not connect to target URL '{target_url}'. Details: {e}")
-        return []
+    vulnerabilities_found = []
 
-    if sast_findings:
-        # --- Targeted Scan (Confirmation Mode) ---
-        print("[*] SAST findings provided. Running in confirmation mode.")
-        
-        # In a real tool, this would involve complex logic to map SAST findings
-        # (e.g., file path, line number) to live URL endpoints and parameters.
-        # For this hackathon, we'll simulate this by passing findings to an attack engine.
-        
-        confirmed_vulns = perform_targeted_scan(target_url, sast_findings)
-        
-    else:
-        # --- Broad Scan (Discovery Mode) ---
+    # --- FIX: Instantiate and run the new Crawler class ---
+    if not sast_findings:
         print("[*] No SAST findings provided. Running in discovery mode.")
-        
-        # 1. Crawl the website to find links and forms
         print("[*] Step 1: Crawling the website...")
-        discovered_endpoints = crawl(target_url)
-        if not discovered_endpoints:
+        
+        crawler = Crawler(target_url)
+        endpoints = crawler.run() # This now returns all discovered links
+
+        if not endpoints:
             print("[-] Crawler found no actionable endpoints. Halting scan.")
             return []
-        print(f"[+] Crawler discovered {len(discovered_endpoints)} endpoints.")
-
-        # 2. For this simplified version, we will pass endpoints to the attack engine.
-        # A full implementation would have a more extensive attack phase here.
-        print("[*] Step 2: Launching attacks (simulation)...")
-        # In this context, we pass an empty list for sast_findings to signify discovery.
-        attack_results = perform_targeted_scan(target_url, [])
-
-        # 3. Analyze results
-        print("[*] Step 3: Analyzing attack responses...")
-        confirmed_vulns = analyze_responses(attack_results)
-
-    if confirmed_vulns:
-        print(f"[+] DAST scan complete. Found {len(confirmed_vulns)} confirmed vulnerabilities.")
-    else:
-        print("[-] DAST scan complete. No vulnerabilities confirmed.")
         
-    return sorted(confirmed_vulns, key=lambda x: x.get('endpoint'))
+        # In discovery mode, we create generic targets for the attack engine
+        attack_targets = [{'url': url, 'params': None, 'method': 'GET'} for url in endpoints]
 
+    else:
+        print(f"[*] Received {len(sast_findings)} targets from SAST. Running in targeted mode.")
+        attack_targets = sast_findings
+    
+    print("\n[*] Step 2: Launching attacks...")
+    attack_engine = AttackEngine(target_url)
+    attack_results = attack_engine.run_attacks(attack_targets)
+    
+    print("\n[*] Step 3: Analyzing results...")
+    for result in attack_results:
+        confirmed_vuln = analyze_response(result)
+        if confirmed_vuln:
+            vulnerabilities_found.append(confirmed_vuln)
+            print(f"  [+] VULNERABILITY FOUND: {confirmed_vuln['type']} at {confirmed_vuln['url']} with payload: {confirmed_vuln['payload']}")
+
+    if not vulnerabilities_found:
+        print("[-] No vulnerabilities confirmed by DAST.")
+
+    return vulnerabilities_found
 
 if __name__ == '__main__':
-    import json
+    # Example of running the DAST scanner directly
+    if len(sys.argv) < 2:
+        print("Usage: python dast_runner.py <target_url>")
+        sys.exit(1)
     
-    # This is a dummy test. A real DAST scan needs a running web application.
-    print("[!] DAST Runner - Direct Execution Test Mode")
-    
-    # Example: To test this, you would need a vulnerable web app running.
-    # For instance, a simple Flask app with an XSS vulnerability.
-    TEST_TARGET = "http://127.0.0.1:5000" # Assume a local test app is running
-    
-    print(f"[*] Running a demo DAST scan on: {TEST_TARGET}")
-
-    # To simulate the full SAST+DAST flow, you could run SAST first
-    # and feed its output here. For now, we run a discovery scan.
-    results = run_dast(TEST_TARGET)
-    
-    if results:
-        print("\n--- DAST RUNNER TEST RESULTS ---")
-        print(json.dumps(results, indent=2))
-        print("----------------------------")
+    target = sys.argv[1]
+    run_dast(target)
