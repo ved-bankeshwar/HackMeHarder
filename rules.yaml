@@ -2,7 +2,6 @@ secret_rules:
   - id: generic-password
     description: Hardcoded password found
     severity: High
-  # Note: A single quote (') inside a single-quoted string is escaped by doubling it ('').
     regex: '(?i)[''"]?(password|passwd|pwd)[''"]?\s*[:=]\s*[''"](.{4,})[''"]'
 
   - id: generic-api-key
@@ -141,11 +140,9 @@ taint_analysis_rules:
     description: "Potential Path Traversal: User-controlled input is used in a file path."
     severity: "High"
     sources:
-      # Patterns for where user input comes from in Flask
       - "request.args.get"
       - "request.form.get"
     sinks:
-      # Dangerous functions for file access
       - "open"
       - "os.path.join"
       - "pathlib.Path"
@@ -164,8 +161,6 @@ taint_analysis_rules:
       - "cursor.raw_execute"
       - "pandas.read_sql_query"
       - "sqlalchemy.text"
-      # Note: This is a simplified check. A more advanced scanner
-      # would also check for insecure string formatting.
   
   command_injection:
     id: "command-injection"
@@ -187,11 +182,9 @@ taint_analysis_rules:
     description: "Potential Unvalidated Redirect: User-controlled input is used in a redirect function."
     severity: "Medium"
     sources:
-      # Sources of user input for Flask
       - "request.args.get"
       - "request.form.get"
     sinks:
-      # Redirect functions for Flask and Django
       - "flask.redirect"
       - "django.shortcuts.redirect"
       - "django.http.HttpResponseRedirect"
@@ -257,7 +250,6 @@ insecure_deserialization_rules:
             is_formatted_string: True
 
 xss_rules:
-  # 'Sources' are functions/objects that provide user-controllable input.
   sources:
     - "request.args"
     - "request.form"
@@ -265,8 +257,6 @@ xss_rules:
     - "request.data"
     - "request.json"
 
-  # 'Sinks' are dangerous functions where tainted data should not go.
-  # For Flask, this includes functions that render raw HTML.
   sinks:
     - "render_template_string"
     - "Markup"

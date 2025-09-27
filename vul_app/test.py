@@ -3,16 +3,13 @@ import os
 import sys
 import ast
 import yaml
-import json  # added for pretty printing
+import json  
 
-# --- Adjust Python path to find SAST modules ---
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'SAST')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Import your scanners
-from SAST.secrets_scanner import scan_file_for_secrets
 from SAST.vulnerability_scanner import CodeVulnerabilityVisitor, DeserializationAnalyzer
+from SAST.secrets_scanner import scan_file_for_secrets
 
-# --- Load rules.yaml dynamically ---
 RULES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'rules.yaml'))
 with open(RULES_PATH, 'r') as f:
     ALL_RULES = yaml.safe_load(f)
@@ -118,7 +115,3 @@ class TestSastScanners(unittest.TestCase):
         print("\n[PATH-TRAVERSAL] findings:")
         print(json.dumps(visitor.findings, indent=2))
         self.assertIsNotNone(visitor.findings)
-
-
-if __name__ == '__main__':
-    unittest.main()
